@@ -1,7 +1,7 @@
 <!-- BEGIN_TF_DOCS -->
-# Example of Subnets with pre-existing virtual networks
+# Example of using teh singular address prefix on a subnet
 
-This code sample shows how to create and manage subnets for pre-existing virtual networks.
+Some Azure resource types don't support the addressPrefix array, so we need to support the singular option too.
 
 ```hcl
 terraform {
@@ -52,33 +52,49 @@ resource "azurerm_resource_group" "this" {
   name     = module.naming.resource_group.name_unique
 }
 
-locals {
-  address_space = "10.0.0.0/16"
+module "vnet" {
+  source              = "../../"
+  name                = module.naming.virtual_network.name
+  enable_telemetry    = true
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+
+  address_space = ["10.0.0.0/16"]
   subnets = {
-    for i in range(2) :
-    "subnet${i}" => {
-      name             = "${module.naming.subnet.name_unique}${i}"
-      address_prefixes = [cidrsubnet(local.address_space, 8, i)]
+    subnet1 = {
+      name                            = "subnet1"
+      address_prefix                  = "10.0.0.0/24"
+      default_outbound_access_enabled = true
+      delegation = [{
+        name = "aca_delegation"
+        service_delegation = {
+          name    = "Microsoft.App/environments"
+          actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+        }
+      }]
     }
   }
 }
 
-resource "azurerm_virtual_network" "this" {
-  address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.this.location
-  name                = module.naming.virtual_network.name_unique
-  resource_group_name = azurerm_resource_group.this.name
-}
+/* # NOTE: This resource take a long time to create and destroy, so we are removing from e2e tests.
+resource "azurerm_container_app_environment" "aca" {
+  name                       = module.naming.container_app_environment.name
+  location                   = azurerm_resource_group.this.location
+  resource_group_name        = azurerm_resource_group.this.name
 
-module "subnets" {
-  for_each = local.subnets
-  source   = "../../modules/subnet"
-  virtual_network = {
-    resource_id = azurerm_virtual_network.this.id
+  infrastructure_resource_group_name = "${module.naming.resource_group.name_unique}-aca"
+  infrastructure_subnet_id           = module.vnet.subnets["subnet1"].resource_id
+  internal_load_balancer_enabled = true
+
+  workload_profile {
+    name = "Consumption"
+    workload_profile_type  = "Consumption"
+    maximum_count = 1
+    minimum_count = 0
   }
-  name             = each.value.name
-  address_prefixes = each.value.address_prefixes
+  zone_redundancy_enabled = false
 }
+*/
 ```
 
 <!-- markdownlint-disable MD033 -->
@@ -97,7 +113,6 @@ The following requirements are needed by this module:
 The following resources are used by this module:
 
 - [azurerm_resource_group.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) (resource)
-- [azurerm_virtual_network.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/virtual_network) (resource)
 - [random_integer.region_index](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/integer) (resource)
 
 <!-- markdownlint-disable MD013 -->
@@ -129,9 +144,9 @@ Source: Azure/regions/azurerm
 
 Version: ~> 0.3
 
-### <a name="module_subnets"></a> [subnets](#module\_subnets)
+### <a name="module_vnet"></a> [vnet](#module\_vnet)
 
-Source: ../../modules/subnet
+Source: ../../
 
 Version:
 

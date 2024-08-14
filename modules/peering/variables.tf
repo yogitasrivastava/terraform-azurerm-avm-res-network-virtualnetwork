@@ -56,6 +56,68 @@ variable "create_reverse_peering" {
   nullable    = false
 }
 
+variable "do_not_verify_remote_gateways" {
+  type        = bool
+  default     = false
+  description = "Do not verify remote gateways for the virtual network peering"
+  nullable    = false
+}
+
+variable "enable_only_ipv6_peering" {
+  type        = bool
+  default     = false
+  description = "Enable only IPv6 peering for the virtual network peering"
+  nullable    = false
+}
+
+variable "local_peered_address_spaces" {
+  type = list(object({
+    address_prefix = string
+  }))
+  default     = []
+  description = "The address space of the local virtual network to peer. Only relevant if peer_complete_vnets is false"
+}
+
+variable "local_peered_subnets" {
+  type = list(object({
+    subnet_name = string
+  }))
+  default     = []
+  description = "The subnets of the local virtual network to peer. Only relevant if peer_complete_vnets is false"
+}
+
+variable "peer_complete_vnets" {
+  type        = bool
+  default     = true
+  description = "Peer complete virtual networks for the virtual network peering"
+  nullable    = false
+
+  validation {
+    condition = var.peer_complete_vnets || (!var.peer_complete_vnets && (
+      (length(var.local_peered_address_spaces == null ? [] : var.local_peered_address_spaces) > 0 && length(var.remote_peered_address_spaces == null ? [] : var.remote_peered_address_spaces) > 0)
+      ||
+      ((length(var.local_peered_subnets == null ? [] : var.local_peered_subnets) > 0 && length(var.remote_peered_subnets == null ? [] : var.remote_peered_subnets) > 0))
+    ))
+    error_message = "At least one of peered_address_spaces or peered_subnets must be set when peer_complete_vnets is false"
+  }
+}
+
+variable "remote_peered_address_spaces" {
+  type = list(object({
+    address_prefix = string
+  }))
+  default     = []
+  description = "The address space of the remote virtual network to peer. Only relevant if peer_complete_vnets is false"
+}
+
+variable "remote_peered_subnets" {
+  type = list(object({
+    subnet_name = string
+  }))
+  default     = []
+  description = "The subnets of the remote virtual network to peer. Only relevant if peer_complete_vnets is false"
+}
+
 variable "reverse_allow_forwarded_traffic" {
   type        = bool
   default     = false
@@ -77,10 +139,72 @@ variable "reverse_allow_virtual_network_access" {
   nullable    = false
 }
 
+variable "reverse_do_not_verify_remote_gateways" {
+  type        = bool
+  default     = false
+  description = "Do not verify remote gateways for the reverse peering"
+  nullable    = false
+}
+
+variable "reverse_enable_only_ipv6_peering" {
+  type        = bool
+  default     = false
+  description = "Enable only IPv6 peering for the reverse peering"
+  nullable    = false
+}
+
+variable "reverse_local_peered_address_spaces" {
+  type = list(object({
+    address_prefix = string
+  }))
+  default     = []
+  description = "The address space of the remote virtual network to peer. Only relevant if reverse_peer_complete_vnets is false"
+}
+
+variable "reverse_local_peered_subnets" {
+  type = list(object({
+    subnet_name = string
+  }))
+  default     = []
+  description = "The subnets of the local remote network to peer. Only relevant if reverse_peer_complete_vnets is false"
+}
+
 variable "reverse_name" {
   type        = string
   default     = null
   description = "The name of the reverse peering"
+}
+
+variable "reverse_peer_complete_vnets" {
+  type        = bool
+  default     = true
+  description = "Peer complete virtual networks for the reverse peering"
+  nullable    = false
+
+  validation {
+    condition = var.reverse_peer_complete_vnets || (var.create_reverse_peering && !var.reverse_peer_complete_vnets && (
+      (length(var.reverse_local_peered_address_spaces == null ? [] : var.reverse_local_peered_address_spaces) > 0 && length(var.reverse_remote_peered_address_spaces == null ? [] : var.reverse_remote_peered_address_spaces) > 0)
+      ||
+      (length(var.reverse_local_peered_subnets == null ? [] : var.reverse_local_peered_subnets) > 0 && length(var.reverse_remote_peered_subnets == null ? [] : var.reverse_remote_peered_subnets) > 0)
+    ))
+    error_message = "At least one of reverse_peered_address_spaces or reverse_peered_subnets must be set when reverse_peer_complete_vnets is false"
+  }
+}
+
+variable "reverse_remote_peered_address_spaces" {
+  type = list(object({
+    address_prefix = string
+  }))
+  default     = []
+  description = "The address space of the local virtual network to peer. Only relevant if reverse_peer_complete_vnets is false"
+}
+
+variable "reverse_remote_peered_subnets" {
+  type = list(object({
+    subnet_name = string
+  }))
+  default     = []
+  description = "The subnets of the remote local network to peer. Only relevant if reverse_peer_complete_vnets is false"
 }
 
 variable "reverse_use_remote_gateways" {
@@ -88,6 +212,14 @@ variable "reverse_use_remote_gateways" {
   default     = false
   description = "Use remote gateways for the reverse peering"
   nullable    = false
+}
+
+variable "subscription_id" {
+  type        = string
+  default     = null
+  description = <<DESCRIPTION
+  (Optional) The subscription ID to use for the feature registration.
+DESCRIPTION
 }
 
 variable "use_remote_gateways" {
